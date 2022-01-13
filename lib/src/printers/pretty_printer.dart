@@ -37,8 +37,8 @@ class PrettyPrinter extends LogPrinter {
     Level.verbose: '',
     Level.debug: '🐛 ',
     Level.info: '💡 ',
-    Level.warning: '⚠️ ',
-    Level.error: '⛔ ',
+    Level.warning: '👻👻 ',
+    Level.error: '⛔⛔⛔ ',
     Level.wtf: '👾 ',
   };
 
@@ -75,16 +75,6 @@ class PrettyPrinter extends LogPrinter {
   final bool printEmojis;
   final bool printTime;
 
-  /// To prevent ascii 'boxing' of any log [Level] include the level in map for excludeBox,
-  /// for example to prevent boxing of [Level.verbose] and [Level.info] use excludeBox:{Level.verbose:true, Level.info:true}
-  final Map<Level, bool> excludeBox;
-
-  /// To make the default for every level to prevent boxing entirely set [noBoxingByDefault] to true
-  /// (boxing can still be turned on for some levels by using something like excludeBox:{Level.error:false} )
-  final bool noBoxingByDefault;
-
-  late final Map<Level, bool> includeBox;
-
   String _topBorder = '';
   String _middleBorder = '';
   String _bottomBorder = '';
@@ -97,8 +87,6 @@ class PrettyPrinter extends LogPrinter {
     this.colors = true,
     this.printEmojis = true,
     this.printTime = false,
-    this.excludeBox = const {},
-    this.noBoxingByDefault = false,
   }) {
     _startTime ??= DateTime.now();
 
@@ -112,11 +100,6 @@ class PrettyPrinter extends LogPrinter {
     _topBorder = '$topLeftCorner$doubleDividerLine';
     _middleBorder = '$middleCorner$singleDividerLine';
     _bottomBorder = '$bottomLeftCorner$doubleDividerLine';
-
-    // Translate excludeBox map (constant if default) to includeBox map with all Level enum possibilities
-    includeBox = {};
-    Level.values.forEach((l) => includeBox[l] = !noBoxingByDefault);
-    excludeBox.forEach((k, v) => includeBox[k] = !v);
   }
 
   @override
@@ -214,26 +197,22 @@ class PrettyPrinter extends LogPrinter {
     }
 
     var now = DateTime.now();
+    var month = now.month;
+    var day = now.day;
     var h = _twoDigits(now.hour);
     var min = _twoDigits(now.minute);
     var sec = _twoDigits(now.second);
     var ms = _threeDigits(now.millisecond);
-    var timeSinceStart = now.difference(_startTime!).toString();
-    return '$h:$min:$sec.$ms (+$timeSinceStart)';
-  }
 
-  // Handles any object that is causing JsonEncoder() problems
-  Object toEncodableFallback(dynamic object) {
-    return object.toString();
+    return '$month-$day $h:$min:$sec.$ms';
   }
 
   String stringifyMessage(dynamic message) {
-    final finalMessage = message is Function ? message() : message;
-    if (finalMessage is Map || finalMessage is Iterable) {
-      var encoder = JsonEncoder.withIndent('  ', toEncodableFallback);
-      return encoder.convert(finalMessage);
+    if (message is Map || message is Iterable) {
+      var encoder = JsonEncoder.withIndent('  ');
+      return encoder.convert(message);
     } else {
-      return finalMessage.toString();
+      return message.toString();
     }
   }
 
@@ -275,40 +254,40 @@ class PrettyPrinter extends LogPrinter {
     // This code is non trivial and a type annotation here helps understanding.
     // ignore: omit_local_variable_types
     List<String> buffer = [];
-    var verticalLineAtLevel = (includeBox[level]!) ? (verticalLine + ' ') : '';
     var color = _getLevelColor(level);
-    if (includeBox[level]!) buffer.add(color(_topBorder));
+    buffer.add(color(_topBorder));
 
     if (error != null) {
       var errorColor = _getErrorColor(level);
       for (var line in error.split('\n')) {
         buffer.add(
-          color(verticalLineAtLevel) +
+          color('$verticalLine ') +
               errorColor.resetForeground +
               errorColor(line) +
               errorColor.resetBackground,
         );
       }
-      if (includeBox[level]!) buffer.add(color(_middleBorder));
+      buffer.add(color(_middleBorder));
     }
 
     if (stacktrace != null) {
       for (var line in stacktrace.split('\n')) {
-        buffer.add(color('$verticalLineAtLevel$line'));
+        buffer.add('$color$verticalLine $line');
       }
-      if (includeBox[level]!) buffer.add(color(_middleBorder));
+      buffer.add(color(_middleBorder));
     }
 
     if (time != null) {
-      buffer.add(color('$verticalLineAtLevel$time'));
-      if (includeBox[level]!) buffer.add(color(_middleBorder));
+      buffer
+        ..add(color('$verticalLine $time'))
+        ..add(color(_middleBorder));
     }
 
     var emoji = _getEmoji(level);
     for (var line in message.split('\n')) {
-      buffer.add(color('$verticalLineAtLevel$emoji$line'));
+      buffer.add(color('$verticalLine $emoji$line'));
     }
-    if (includeBox[level]!) buffer.add(color(_bottomBorder));
+    buffer.add(color(_bottomBorder));
 
     return buffer;
   }
